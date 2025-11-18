@@ -1,0 +1,36 @@
+{
+  "name": "opsorch-mcp",
+  "version": "1.0.0",
+  "description": "`opsorch-mcp` is the Model Context Protocol (MCP) server for OpsOrch. It exposes OpsOrch Core APIs as safe MCP tools for any LLM or agent runtime.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc --noEmit false",
+    "lint": "tsc --noEmit",
+    "dev": "ts-node src/index.ts",
+    "start": "node dist/index.js",
+    "test": "NODE_ENV=test MCP_SKIP_RUN=1 node --test --require ts-node/register $(find tests -type f -name '*.test.ts')"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpsOrch/opsorch-mcp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/OpsOrch/opsorch-mcp/issues"
+  },
+  "homepage": "https://github.com/OpsOrch/opsorch-mcp#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.22.0",
+    "express": "^5.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.5",
+    "@types/node": "^24.10.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
