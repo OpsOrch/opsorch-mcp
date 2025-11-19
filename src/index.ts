@@ -77,7 +77,7 @@ const metricQuerySchema = z.object({
   expression: z.string(),
   start: z.string().datetime(),
   end: z.string().datetime(),
-  step: z.string(),
+  step: z.number().int().positive(),
   scope: queryScopeSchema.optional(),
   metadata: z.record(z.any()).optional(),
 });
@@ -125,11 +125,6 @@ const messageSchema = z.object({
 });
 
 const capabilitySchema = z.enum(['incident', 'log', 'metric', 'ticket', 'messaging', 'service']);
-
-type HttpServerOptions = {
-  allowOrigins?: string[];
-  allowHosts?: string[];
-};
 
 export function buildURL(pathname: string): string {
   const base = new URL(getCoreURL());

@@ -73,6 +73,20 @@ curl -s http://localhost:7070/mcp \
 - `update-ticket` – PATCH /tickets/{id}
 - `send-message` – POST /messages/send
 
+### Tool input field types
+
+Documented below so agents can quickly see whether a field should be a string, integer, or structured payload and which ranges apply.
+
+- **Query/list limits**: every `limit` argument is an optional positive integer (`> 0`). Keep requested rows lean (tens, not hundreds) unless a human explicitly approves a broader fetch.
+- **Scope**: `scope.service`, `scope.team`, and `scope.environment` are optional strings that narrow every query/mutation and should always be set when known.
+- **Incident queries (`query-incidents`)**: `query` is a free-text string; `statuses`/`severities` are string arrays; `metadata` is an object with provider-specific keys.
+- **Log queries (`query-logs`)**: `start`/`end` are ISO-8601 timestamps; `limit` is the max number of entries; `providers` is an optional string array so you can force a connector. Always bound the time range before asking for approval on costly scans.
+- **Metric queries (`query-metrics`)**: `expression` is the provider-native query string; `step` is a duration string accepted by the provider (e.g., `30s`, `5m`). Timestamps follow ISO-8601.
+- **Service queries (`query-services`)**: `ids` is an optional string array; `tags` is a map of string key/value filters.
+- **Incident/ticket mutations**: `title`, `status`, `severity`, `service`, and `description` are strings. The `fields` bag accepts arbitrary JSON so adapters can pass through provider-specific typed fields (document them in the incident/ticket timeline when you rely on them).
+- **Timeline appends**: `at` accepts an ISO-8601 timestamp; omit it to let OpsOrch Core timestamp the entry. `kind` and `body` are strings; `actor`/`metadata` are JSON objects.
+- **Messaging (`send-message`)**: `channel` and `threadRef` are strings; `body` is the exact message text. Attach snippets or metric deltas via `metadata` when present so observers can verify later.
+
 ## Resources
 
 - `opsorch://docs/agents-architecture` – serves `AGENTS.md` so clients can retrieve the OpsOrch Agents Architecture content directly.
