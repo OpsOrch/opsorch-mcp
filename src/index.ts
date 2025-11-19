@@ -5,6 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 import express from 'express';
+import { logger } from './logger';
 
 const pkgVersion = '1.0.0';
 
@@ -139,6 +140,14 @@ export async function coreRequest<T>(
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), getCoreTimeoutMs());
+  const startedAt = Date.now();
+  let failureLogged = false;
+
+  logger.debug('Calling OpsOrch Core', {
+    method,
+    pathname,
+    body,
+  });
 
   try {
     const res = await fetch(buildURL(pathname), {
@@ -153,13 +162,44 @@ export async function coreRequest<T>(
 
     const text = await res.text();
     const data = text ? (JSON.parse(text) as unknown) : undefined;
+    const durationMs = Date.now() - startedAt;
 
     if (!res.ok) {
       const message = typeof data === 'object' && data !== null && 'message' in data ? String((data as any).message) : res.statusText;
+      failureLogged = true;
+      logger.error('OpsOrch Core call failed', {
+        method,
+        pathname,
+        status: res.status,
+        durationMs,
+        error: message,
+      });
       throw new Error(`OpsOrch Core ${res.status}: ${message}`);
     }
 
+    logger.info('OpsOrch Core call succeeded', {
+      method,
+      pathname,
+      status: res.status,
+      durationMs,
+    });
+    logger.debug('OpsOrch Core response payload', {
+      method,
+      pathname,
+      response: data,
+    });
     return data as T;
+  } catch (error) {
+    const durationMs = Date.now() - startedAt;
+    if (!failureLogged) {
+      logger.error('OpsOrch Core request encountered an error', {
+        method,
+        pathname,
+        durationMs,
+        error,
+      });
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }
@@ -492,6 +532,7 @@ async function main() {
   const stdioTransport = new StdioServerTransport();
   const stdioServer = buildServer();
   await stdioServer.connect(stdioTransport);
+  logger.info('OpsOrch MCP stdio transport ready');
 
   // Optional HTTP transport for clients that prefer HTTP MCP.
   const httpPort = process.env.MCP_HTTP_PORT ? Number(process.env.MCP_HTTP_PORT) : 7070;
@@ -520,7 +561,12 @@ async function main() {
     });
 
     app.listen(httpPort, () => {
-      console.log(`OpsOrch MCP HTTP listening on http://localhost:${httpPort}/mcp`);
+      logger.info('OpsOrch MCP HTTP listening', {
+        url: `http://localhost:${httpPort}/mcp`,
+        port: httpPort,
+        allowOrigins,
+        allowHosts,
+      });
     });
   }
 }
@@ -529,7 +575,7 @@ const shouldRun = process.env.MCP_SKIP_RUN !== '1' && process.env.NODE_ENV !== '
 
 if (shouldRun) {
   main().catch((error) => {
-    console.error('Failed to start opsorch-mcp server:', error);
+    logger.error('Failed to start opsorch-mcp server', { error });
     process.exit(1);
   });
 }

@@ -19,6 +19,7 @@ Configure where to reach OpsOrch Core:
 OPSORCH_CORE_URL=http://localhost:8080 \
 OPSORCH_CORE_TOKEN=changeme            # Bearer token (default 'demo' if unset)
 OPSORCH_CORE_TIMEOUT_MS=15000           # optional
+OPSORCH_LOG_LEVEL=debug                 # optional (debug, info, warn, error)
 npm run dev
 ```
 
@@ -72,6 +73,12 @@ curl -s http://localhost:7070/mcp \
 - `get-ticket` – GET /tickets/{id}
 - `update-ticket` – PATCH /tickets/{id}
 - `send-message` – POST /messages/send
+
+### Logging
+
+- `OPSORCH_LOG_LEVEL` controls verbosity (`debug`, `info`, `warn`, `error`).
+- Every OpsOrch Core HTTP call logs method, path, duration, and status.
+- `debug` adds request/response payloads so you can trace agent decisions end-to-end.
 
 ### Tool input field types
 
