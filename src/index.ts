@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -37,35 +35,20 @@ const incidentQuerySchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
-const createIncidentSchema = z.object({
-  title: z.string(),
-  status: z.string(),
-  severity: z.string(),
-  service: z.string().optional(),
-  fields: z.record(z.any()).optional(),
-  metadata: z.record(z.any()).optional(),
+const logFilterSchema = z.object({
+  field: z.string(),
+  operator: z.string(),
+  value: z.string(),
 });
 
-const updateIncidentSchema = z.object({
-  title: z.string().optional(),
-  status: z.string().optional(),
-  severity: z.string().optional(),
-  service: z.string().optional(),
-  fields: z.record(z.any()).optional(),
-  metadata: z.record(z.any()).optional(),
-});
-
-const timelineAppendSchema = z.object({
-  id: z.string(),
-  at: z.string().datetime().optional(),
-  kind: z.string(),
-  body: z.string(),
-  actor: z.record(z.any()).optional(),
-  metadata: z.record(z.any()).optional(),
+const logExpressionSchema = z.object({
+  search: z.string().optional(),
+  filters: z.array(logFilterSchema).optional(),
+  severityIn: z.array(z.string()).optional(),
 });
 
 const logQuerySchema = z.object({
-  query: z.string(),
+  expression: logExpressionSchema.optional(),
   start: z.string().datetime(),
   end: z.string().datetime(),
   scope: queryScopeSchema.optional(),
@@ -74,8 +57,21 @@ const logQuerySchema = z.object({
   providers: z.array(z.string()).optional(),
 });
 
+const metricFilterSchema = z.object({
+  label: z.string(),
+  operator: z.string(),
+  value: z.string(),
+});
+
+const metricExpressionSchema = z.object({
+  metricName: z.string(),
+  aggregation: z.string().optional(),
+  filters: z.array(metricFilterSchema).optional(),
+  groupBy: z.array(z.string()).optional(),
+});
+
 const metricQuerySchema = z.object({
-  expression: z.string(),
+  expression: metricExpressionSchema.optional(),
   start: z.string().datetime(),
   end: z.string().datetime(),
   step: z.number().int().positive(),
@@ -102,30 +98,7 @@ const ticketQuerySchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
-const createTicketSchema = z.object({
-  title: z.string(),
-  description: z.string().optional(),
-  fields: z.record(z.any()).optional(),
-  metadata: z.record(z.any()).optional(),
-});
-
-const updateTicketSchema = z.object({
-  title: z.string().optional(),
-  description: z.string().optional(),
-  status: z.string().optional(),
-  assignees: z.array(z.string()).optional(),
-  fields: z.record(z.any()).optional(),
-  metadata: z.record(z.any()).optional(),
-});
-
-const messageSchema = z.object({
-  channel: z.string(),
-  body: z.string(),
-  metadata: z.record(z.any()).optional(),
-  threadRef: z.string().optional(),
-});
-
-const capabilitySchema = z.enum(['incident', 'log', 'metric', 'ticket', 'messaging', 'service']);
+const capabilitySchema = z.enum(['incident', 'log', 'metric', 'ticket', 'service']);
 
 export function buildURL(pathname: string): string {
   const base = new URL(getCoreURL());
@@ -223,21 +196,6 @@ function buildServer(): McpServer {
     version: pkgVersion,
   });
 
-  // Health check
-  server.registerTool(
-    'health',
-    {
-      title: 'OpsOrch Core Health',
-      description: 'Ping GET /health to confirm the configured OpsOrch Core is reachable and authenticated before taking action.',
-      inputSchema: z.object({}),
-      outputSchema: z.any(),
-    },
-    async () => {
-      const data = await coreRequest<Record<string, unknown>>('/health', 'GET');
-      return asContent(data);
-    }
-  );
-
   // Incidents
   server.registerTool(
     'query-incidents',
@@ -250,35 +208,6 @@ function buildServer(): McpServer {
     async (input) => {
       const payload = incidentQuerySchema.parse(input);
       const data = await coreRequest('/incidents/query', 'POST', payload);
-      return asContent(data);
-    }
-  );
-
-  server.registerTool(
-    'list-incidents',
-    {
-      title: 'List Incidents',
-      description: 'Quickly enumerate the latest incidents with GET /incidents when you just need the provider’s default listing.',
-      inputSchema: z.object({}),
-      outputSchema: z.any(),
-    },
-    async () => {
-      const data = await coreRequest('/incidents', 'GET');
-      return asContent(data);
-    }
-  );
-
-  server.registerTool(
-    'create-incident',
-    {
-      title: 'Create Incident',
-      description: 'Open a canonical incident via POST /incidents after confirming a new record is justified and scoped.',
-      inputSchema: createIncidentSchema,
-      outputSchema: z.any(),
-    },
-    async (input) => {
-      const payload = createIncidentSchema.parse(input);
-      const data = await coreRequest('/incidents', 'POST', payload);
       return asContent(data);
     }
   );
@@ -298,22 +227,6 @@ function buildServer(): McpServer {
   );
 
   server.registerTool(
-    'update-incident',
-    {
-      title: 'Update Incident',
-      description: 'Adjust status, severity, or fields via PATCH /incidents/{id} once you have the incident’s latest state.',
-      inputSchema: z.object({ id: z.string() }).merge(updateIncidentSchema),
-      outputSchema: z.any(),
-    },
-    async (input) => {
-      const { id, ...rest } = input;
-      const payload = updateIncidentSchema.parse(rest);
-      const data = await coreRequest(`/incidents/${encodeURIComponent(id)}`, 'PATCH', payload);
-      return asContent(data);
-    }
-  );
-
-  server.registerTool(
     'get-incident-timeline',
     {
       title: 'Get Incident Timeline',
@@ -323,26 +236,6 @@ function buildServer(): McpServer {
     },
     async ({ id }) => {
       const data = await coreRequest(`/incidents/${encodeURIComponent(id)}/timeline`, 'GET');
-      return asContent(data);
-    }
-  );
-
-  server.registerTool(
-    'append-incident-timeline',
-    {
-      title: 'Append Incident Timeline',
-      description: 'Append evidence or status notes via POST /incidents/{id}/timeline, including correlation IDs in metadata.',
-      inputSchema: timelineAppendSchema,
-      outputSchema: z.any(),
-    },
-    async (input) => {
-      const payload = timelineAppendSchema.parse(input);
-      const at = payload.at || new Date().toISOString();
-      const { id, ...rest } = payload;
-      const data = await coreRequest(`/incidents/${encodeURIComponent(id)}/timeline`, 'POST', {
-        ...rest,
-        at,
-      });
       return asContent(data);
     }
   );
@@ -379,6 +272,23 @@ function buildServer(): McpServer {
     }
   );
 
+  server.registerTool(
+    'describe-metrics',
+    {
+      title: 'Describe Metrics',
+      description: 'List available metrics with POST /metrics/describe to discover what metrics are exposed by the provider.',
+      inputSchema: z.object({
+        scope: queryScopeSchema.optional(),
+      }),
+      outputSchema: z.any(),
+    },
+    async (input) => {
+      const payload = input.scope || {};
+      const data = await coreRequest('/metrics/describe', 'POST', payload);
+      return asContent(data);
+    }
+  );
+
   // Tickets
   server.registerTool(
     'query-tickets',
@@ -391,21 +301,6 @@ function buildServer(): McpServer {
     async (input) => {
       const payload = ticketQuerySchema.parse(input);
       const data = await coreRequest('/tickets/query', 'POST', payload);
-      return asContent(data);
-    }
-  );
-
-  server.registerTool(
-    'create-ticket',
-    {
-      title: 'Create Ticket',
-      description: 'Create a follow-up or project-management ticket through POST /tickets once human approval is obtained.',
-      inputSchema: createTicketSchema,
-      outputSchema: z.any(),
-    },
-    async (input) => {
-      const payload = createTicketSchema.parse(input);
-      const data = await coreRequest('/tickets', 'POST', payload);
       return asContent(data);
     }
   );
@@ -425,37 +320,6 @@ function buildServer(): McpServer {
   );
 
   server.registerTool(
-    'update-ticket',
-    {
-      title: 'Update Ticket',
-      description: 'Adjust ticket status, ownership, or metadata via PATCH /tickets/{id} after syncing with stakeholders.',
-      inputSchema: z.object({ id: z.string() }).merge(updateTicketSchema),
-      outputSchema: z.any(),
-    },
-    async (input) => {
-      const { id, ...rest } = input;
-      const payload = updateTicketSchema.parse(rest);
-      const data = await coreRequest(`/tickets/${encodeURIComponent(id)}`, 'PATCH', payload);
-      return asContent(data);
-    }
-  );
-
-  // Services
-  server.registerTool(
-    'list-services',
-    {
-      title: 'List Services',
-      description: 'Enumerate known services through GET /services to discover IDs or tags for scoping follow-up calls.',
-      inputSchema: z.object({}),
-      outputSchema: z.any(),
-    },
-    async () => {
-      const data = await coreRequest('/services', 'GET');
-      return asContent(data);
-    }
-  );
-
-  server.registerTool(
     'query-services',
     {
       title: 'Query Services',
@@ -466,22 +330,6 @@ function buildServer(): McpServer {
     async (input) => {
       const payload = serviceQuerySchema.parse(input);
       const data = await coreRequest('/services/query', 'POST', payload);
-      return asContent(data);
-    }
-  );
-
-  // Messaging
-  server.registerTool(
-    'send-message',
-    {
-      title: 'Send Message',
-      description: 'Broadcast an update to a channel or thread via POST /messages/send so humans stay in the loop.',
-      inputSchema: messageSchema,
-      outputSchema: z.any(),
-    },
-    async (input) => {
-      const payload = messageSchema.parse(input);
-      const data = await coreRequest('/messages/send', 'POST', payload);
       return asContent(data);
     }
   );
@@ -498,29 +346,6 @@ function buildServer(): McpServer {
     async ({ capability }) => {
       const data = await coreRequest(`/providers/${encodeURIComponent(capability)}`, 'GET');
       return asContent(data);
-    }
-  );
-
-  // Expose the Agents Architecture doc as a resource for retrieval.
-  const agentsDocPath = path.resolve(__dirname, '..', 'AGENTS.md');
-  server.registerResource(
-    'opsorch-agents-doc',
-    'opsorch://docs/agents-architecture',
-    {
-      title: 'OpsOrch Agents Architecture',
-      description: 'Authoritative note on agent roles and responsibilities.',
-      mimeType: 'text/markdown',
-    },
-    async (uri) => {
-      const text = await readFile(agentsDocPath, 'utf8');
-      return {
-        contents: [
-          {
-            uri: uri.href,
-            text,
-          },
-        ],
-      };
     }
   );
 
