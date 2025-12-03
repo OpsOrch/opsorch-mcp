@@ -1,6 +1,6 @@
 # opsorch-mcp
 
-opsorch-mcp is the Model Context Protocol (MCP) server for OpsOrch. It exposes OpsOrch Core HTTP APIs as safe MCP tools for LLM and agent runtimes.
+opsorch-mcp is the Model Context Protocol (MCP) server for OpsOrch. It exposes OpsOrch Core HTTP APIs as safe, read-only MCP tools for LLM and agent runtimes.
 
 ## Getting started
 
@@ -34,12 +34,6 @@ curl -s http://localhost:7070/mcp \
   -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 
-# call the health tool
-curl -s http://localhost:7070/mcp \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json, text/event-stream' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"health","arguments":{}}}'
-
 # query incidents
 curl -s http://localhost:7070/mcp \
   -H 'Content-Type: application/json' \
@@ -55,24 +49,19 @@ curl -s http://localhost:7070/mcp \
 
 ## Tools (OpsOrch Core)
 
-- `health` – GET /health
-- `list-providers` – GET /providers/{incident|log|metric|ticket|messaging|service}
-- `list-incidents` – GET /incidents
+This server currently exposes **read-only** tools for querying and retrieving data. No mutation tools are available.
+
 - `query-incidents` – POST /incidents/query
-- `create-incident` – POST /incidents
 - `get-incident` – GET /incidents/{id}
-- `update-incident` – PATCH /incidents/{id}
 - `get-incident-timeline` – GET /incidents/{id}/timeline
-- `append-incident-timeline` – POST /incidents/{id}/timeline
+- `query-alerts` – POST /alerts/query
 - `query-logs` – POST /logs/query
 - `query-metrics` – POST /metrics/query
-- `query-services` – POST /services/query
-- `list-services` – GET /services
+- `describe-metrics` – POST /metrics/describe
 - `query-tickets` – POST /tickets/query
-- `create-ticket` – POST /tickets
 - `get-ticket` – GET /tickets/{id}
-- `update-ticket` – PATCH /tickets/{id}
-- `send-message` – POST /messages/send
+- `query-services` – POST /services/query
+- `list-providers` – GET /providers/{capability}
 
 ### Logging
 
@@ -85,14 +74,14 @@ curl -s http://localhost:7070/mcp \
 Documented below so agents can quickly see whether a field should be a string, integer, or structured payload and which ranges apply.
 
 - **Query/list limits**: every `limit` argument is an optional positive integer (`> 0`). Keep requested rows lean (tens, not hundreds) unless a human explicitly approves a broader fetch.
-- **Scope**: `scope.service`, `scope.team`, and `scope.environment` are optional strings that narrow every query/mutation and should always be set when known.
+- **Scope**: `scope.service`, `scope.team`, and `scope.environment` are optional strings that narrow every query and should always be set when known.
 - **Incident queries (`query-incidents`)**: `query` is a free-text string; `statuses`/`severities` are string arrays; `metadata` is an object with provider-specific keys.
+- **Alert queries (`query-alerts`)**: `query` is a free-text string; `statuses`/`severities` are string arrays.
 - **Log queries (`query-logs`)**: `start`/`end` are ISO-8601 timestamps; `limit` is the max number of entries; `providers` is an optional string array so you can force a connector. Always bound the time range before asking for approval on costly scans.
 - **Metric queries (`query-metrics`)**: `expression` is the provider-native query string; `step` is a duration string accepted by the provider (e.g., `30s`, `5m`). Timestamps follow ISO-8601.
+- **Describe metrics (`describe-metrics`)**: `scope` is the standard query scope.
 - **Service queries (`query-services`)**: `ids` is an optional string array; `tags` is a map of string key/value filters.
-- **Incident/ticket mutations**: `title`, `status`, `severity`, `service`, and `description` are strings. The `fields` bag accepts arbitrary JSON so adapters can pass through provider-specific typed fields (document them in the incident/ticket timeline when you rely on them).
-- **Timeline appends**: `at` accepts an ISO-8601 timestamp; omit it to let OpsOrch Core timestamp the entry. `kind` and `body` are strings; `actor`/`metadata` are JSON objects.
-- **Messaging (`send-message`)**: `channel` and `threadRef` are strings; `body` is the exact message text. Attach snippets or metric deltas via `metadata` when present so observers can verify later.
+- **Ticket queries (`query-tickets`)**: `query` is a free-text string; `statuses`/`assignees` are string arrays.
 
 ## Resources
 
