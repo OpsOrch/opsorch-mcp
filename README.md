@@ -1,5 +1,9 @@
 # opsorch-mcp
 
+[![Version](https://img.shields.io/github/v/release/opsorch/opsorch-mcp)](https://github.com/opsorch/opsorch-mcp/releases)
+[![License](https://img.shields.io/github/license/opsorch/opsorch-mcp)](https://github.com/opsorch/opsorch-mcp/blob/main/LICENSE)
+[![CI](https://github.com/opsorch/opsorch-mcp/workflows/CI/badge.svg)](https://github.com/opsorch/opsorch-mcp/actions)
+
 opsorch-mcp is the Model Context Protocol (MCP) server for OpsOrch. It exposes OpsOrch Core HTTP APIs as safe, read-only MCP tools for LLM and agent runtimes.
 
 ## Getting started
@@ -20,8 +24,15 @@ OPSORCH_CORE_URL=http://localhost:8080 \
 OPSORCH_CORE_TOKEN=changeme            # Bearer token (default 'demo' if unset)
 OPSORCH_CORE_TIMEOUT_MS=15000           # optional
 OPSORCH_LOG_LEVEL=debug                 # optional (debug, info, warn, error)
+MCP_HTTP_PORT=7070                      # optional HTTP transport (set 0 to disable)
+MCP_HTTP_ALLOW_ORIGINS=https://app.local # optional CORS allow-list (comma-separated)
+MCP_HTTP_ALLOW_HOSTS=app.local          # optional host header allow-list (comma-separated)
 npm run dev
 ```
+
+### Transports
+
+The server always binds a stdio transport for MCP-native clients. By default it also exposes an HTTP endpoint on `http://localhost:7070/mcp` so you can run stateless JSON-RPC calls (see curl examples below). Set `MCP_HTTP_PORT=0` to skip HTTP entirely or change it to another positive integer to listen elsewhere. When serving remote clients, configure `MCP_HTTP_ALLOW_ORIGINS` (CORS) and `MCP_HTTP_ALLOW_HOSTS` (Host header allow-list) with comma-separated values.
 
 ### Quick HTTP MCP checks (curl)
 
