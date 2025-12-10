@@ -1,5 +1,5 @@
 {
-  "name": "opsorch-mcp",
+  "name": "@opsorch/mcp",
   "version": "1.0.0",
   "description": "`opsorch-mcp` is the Model Context Protocol (MCP) server for OpsOrch. It exposes OpsOrch Core APIs as safe MCP tools for any LLM or agent runtime.",
   "main": "dist/index.js",
@@ -14,13 +14,22 @@
     "type": "git",
     "url": "git+https://github.com/OpsOrch/opsorch-mcp.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["opsorch", "mcp", "model-context-protocol", "llm", "ai", "tools", "observability", "operations"],
+  "author": "OpsOrch",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/OpsOrch/opsorch-mcp/issues"
   },
   "homepage": "https://github.com/OpsOrch/opsorch-mcp#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.22.0",
     "express": "^5.1.0",

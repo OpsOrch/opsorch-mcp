@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Build artifacts (we copy dist/ explicitly)
+src/
+tests/
+*.test.ts
+*.test.js
+
+# Development files
+.git/
+.github/
+.vscode/
+.actrc
+test-*.sh
+test-*.json
+
+# Documentation
+README.md
+AGENTS.md
+*.md
+
+# Config files
+tsconfig.json
+.gitignore
+.dockerignore
+
+# Package files are copied explicitly in Dockerfile
+
+# Temporary files
+*.tmp
+*.log
+.DS_Store

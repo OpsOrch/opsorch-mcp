@@ -1,14 +1,16 @@
 # opsorch-mcp
 
-[![Version](https://img.shields.io/github/v/release/opsorch/opsorch-mcp)](https://github.com/opsorch/opsorch-mcp/releases)
-[![License](https://img.shields.io/github/license/opsorch/opsorch-mcp)](https://github.com/opsorch/opsorch-mcp/blob/main/LICENSE)
-[![CI](https://github.com/opsorch/opsorch-mcp/workflows/CI/badge.svg)](https://github.com/opsorch/opsorch-mcp/actions)
+[![Version](https://img.shields.io/github/v/release/OpsOrch/opsorch-mcp)](https://github.com/OpsOrch/opsorch-mcp/releases)
+[![License](https://img.shields.io/github/license/OpsOrch/opsorch-mcp)](https://github.com/OpsOrch/opsorch-mcp/blob/main/LICENSE)
+[![CI](https://github.com/OpsOrch/opsorch-mcp/workflows/CI/badge.svg)](https://github.com/OpsOrch/opsorch-mcp/actions)
 
 opsorch-mcp is the Model Context Protocol (MCP) server for OpsOrch. It exposes OpsOrch Core HTTP APIs as safe, read-only MCP tools for LLM and agent runtimes.
 
 ## Getting started
 
-```
+### Local Development
+
+```bash
 npm install
 npm run dev    # runs via ts-node over stdio
 # or
@@ -16,6 +18,51 @@ npm run build && npm start
 ```
 
 The server uses stdio transport by default; spawn it from your MCP client (e.g., Claude Code, MCP Inspector, Cursor) pointing to the compiled `dist/index.js`.
+
+### Docker
+
+Docker images are automatically built and published to GitHub Container Registry with each release. You can run the MCP server using Docker:
+
+```bash
+# Pull the latest version
+docker pull ghcr.io/opsorch/opsorch-mcp:latest
+
+# Run with environment variables
+docker run -d \
+  --name opsorch-mcp \
+  -p 7070:7070 \
+  -e OPSORCH_CORE_URL=http://localhost:8080 \
+  -e OPSORCH_CORE_TOKEN=changeme \
+  -e MCP_HTTP_PORT=7070 \
+  ghcr.io/opsorch/opsorch-mcp:latest
+
+# Or run a specific version
+docker pull ghcr.io/opsorch/opsorch-mcp:v1.0.0
+
+# Using Docker Compose
+cat > docker-compose.yml << EOF
+version: '3.8'
+services:
+  opsorch-mcp:
+    image: ghcr.io/opsorch/opsorch-mcp:latest
+    ports:
+      - "7070:7070"
+    environment:
+      - OPSORCH_CORE_URL=http://localhost:8080
+      - OPSORCH_CORE_TOKEN=changeme
+      - OPSORCH_LOG_LEVEL=info
+      - MCP_HTTP_PORT=7070
+    restart: unless-stopped
+EOF
+
+docker-compose up -d
+```
+
+**Available Docker tags:**
+- `latest` - Latest stable release
+- `v{version}` - Specific version tags (e.g., `v1.0.0`, `v1.1.0`)
+
+The Docker image runs as a non-root user and exposes port 7070 by default (configurable via `MCP_HTTP_PORT` environment variable). The image supports both stdio and HTTP transports for MCP communication.
 
 Configure where to reach OpsOrch Core:
 
@@ -105,3 +152,46 @@ Documented below so agents can quickly see whether a field should be a string, i
 - `npm start` – run the compiled server from `dist/`.
 
 Fill in `AGENTS.md` as needed; all tools already target the OpsOrch Core HTTP API surfaces.
+
+## Releases
+
+This project uses automated releases via GitHub Actions. Releases are triggered manually and include:
+
+- **Semantic versioning** with configurable version bumps (major, minor, patch)
+- **Automated testing** and linting before release
+- **Git tagging** with proper version format (`v{major}.{minor}.{patch}`)
+- **Changelog generation** from commit history
+- **Docker image publishing** to GitHub Container Registry
+- **GitHub releases** with release notes
+
+
+
+### Creating a Release
+
+Maintainers can create a new release by:
+
+1. Go to the [Actions tab](https://github.com/OpsOrch/opsorch-mcp/actions)
+2. Select the "Release" workflow
+3. Click "Run workflow"
+4. Choose the version bump type:
+   - **patch** - Bug fixes and minor updates (1.0.0 → 1.0.1)
+   - **minor** - New features, backward compatible (1.0.0 → 1.1.0)  
+   - **major** - Breaking changes (1.0.0 → 2.0.0)
+5. Click "Run workflow"
+
+The release process will automatically:
+- Run all tests and linting
+- Calculate the next version number
+- Create and push a git tag
+- Build and publish Docker images for multiple architectures (linux/amd64, linux/arm64)
+- Create a GitHub release with changelog
+
+### Installation Options
+
+**Docker:**
+```bash
+docker pull ghcr.io/opsorch/opsorch-mcp:latest
+```
+
+**GitHub Releases:**
+Download release artifacts from the [Releases page](https://github.com/OpsOrch/opsorch-mcp/releases).
