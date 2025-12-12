@@ -200,7 +200,30 @@ const ticketSchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
-const capabilitySchema = z.enum(['incident', 'alert', 'log', 'metric', 'ticket', 'service']);
+const deploymentQuerySchema = z.object({
+  query: z.string().optional(),
+  statuses: z.array(z.string()).optional(),
+  versions: z.array(z.string()).optional(),
+  scope: queryScopeSchema.optional(),
+  limit: z.number().int().positive().optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+const deploymentSchema = z.object({
+  id: z.string(),
+  service: z.string().optional(),
+  environment: z.string().optional(),
+  version: z.string().optional(),
+  status: z.string(),
+  startedAt: z.string().datetime(),
+  finishedAt: z.string().datetime(),
+  url: z.string().optional(),
+  actor: z.record(z.any()).optional(),
+  fields: z.record(z.any()).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+const capabilitySchema = z.enum(['incident', 'alert', 'log', 'metric', 'ticket', 'service', 'deployment']);
 
 const providersResponseSchema = z.object({
   providers: z.array(z.string()),
@@ -450,6 +473,36 @@ function buildServer(): McpServer {
     async (input) => {
       const payload = serviceQuerySchema.parse(input);
       const data = await coreRequest('/services/query', 'POST', payload);
+      return asContent(data);
+    }
+  );
+
+  // Deployments
+  server.registerTool(
+    'query-deployments',
+    {
+      title: 'Query Deployments',
+      description: 'Search deployment history via POST /deployments/query to correlate incidents with recent releases and track deployment status.',
+      inputSchema: deploymentQuerySchema,
+      outputSchema: z.array(deploymentSchema),
+    },
+    async (input) => {
+      const payload = deploymentQuerySchema.parse(input);
+      const data = await coreRequest('/deployments/query', 'POST', payload);
+      return asContent(data);
+    }
+  );
+
+  server.registerTool(
+    'get-deployment',
+    {
+      title: 'Get Deployment',
+      description: 'Retrieve detailed deployment information with GET /deployments/{id} to examine specific deployment events and their metadata.',
+      inputSchema: z.object({ id: z.string() }),
+      outputSchema: deploymentSchema,
+    },
+    async ({ id }) => {
+      const data = await coreRequest(`/deployments/${encodeURIComponent(id)}`, 'GET');
       return asContent(data);
     }
   );

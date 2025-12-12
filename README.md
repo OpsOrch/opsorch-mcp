@@ -103,6 +103,18 @@ curl -s http://localhost:7070/mcp \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"query-tickets","arguments":{"query":"outage","limit":5}}}'
+
+# query deployments
+curl -s http://localhost:7070/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"query-deployments","arguments":{"statuses":["success"],"environments":["production"],"limit":10}}}'
+
+# get deployment
+curl -s http://localhost:7070/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get-deployment","arguments":{"id":"deploy-123"}}}'
 ```
 
 ## Tools (OpsOrch Core)
@@ -118,6 +130,8 @@ This server currently exposes **read-only** tools for querying and retrieving da
 - `describe-metrics` – POST /metrics/describe
 - `query-tickets` – POST /tickets/query
 - `get-ticket` – GET /tickets/{id}
+- `query-deployments` – POST /deployments/query
+- `get-deployment` – GET /deployments/{id}
 - `query-services` – POST /services/query
 - `list-providers` – GET /providers/{capability}
 
@@ -140,6 +154,7 @@ Documented below so agents can quickly see whether a field should be a string, i
 - **Describe metrics (`describe-metrics`)**: `scope` is the standard query scope.
 - **Service queries (`query-services`)**: `ids` is an optional string array; `tags` is a map of string key/value filters.
 - **Ticket queries (`query-tickets`)**: `query` is a free-text string; `statuses`/`assignees` are string arrays.
+- **Deployment queries (`query-deployments`)**: `query` is a free-text string; `statuses`/`environments` are string arrays; supports standard scope filtering for targeted deployment searches.
 
 ## Resources
 

@@ -14,7 +14,16 @@
     "type": "git",
     "url": "git+https://github.com/OpsOrch/opsorch-mcp.git"
   },
-  "keywords": ["opsorch", "mcp", "model-context-protocol", "llm", "ai", "tools", "observability", "operations"],
+  "keywords": [
+    "opsorch",
+    "mcp",
+    "model-context-protocol",
+    "llm",
+    "ai",
+    "tools",
+    "observability",
+    "operations"
+  ],
   "author": "OpsOrch",
   "license": "ISC",
   "bugs": {
