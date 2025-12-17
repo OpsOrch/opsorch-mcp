@@ -223,7 +223,32 @@ const deploymentSchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
-const capabilitySchema = z.enum(['incident', 'alert', 'log', 'metric', 'ticket', 'service', 'deployment']);
+const teamQuerySchema = z.object({
+  name: z.string().optional(),
+  tags: z.record(z.string()).optional(),
+  scope: queryScopeSchema.optional(),
+  limit: z.number().int().positive().optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+const teamSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  parent: z.string().optional(),
+  tags: z.record(z.string()).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+const teamMemberSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  handle: z.string(),
+  role: z.string(),
+  metadata: z.record(z.any()).optional(),
+});
+
+const capabilitySchema = z.enum(['incident', 'alert', 'log', 'metric', 'ticket', 'service', 'deployment', 'team']);
 
 const providersResponseSchema = z.object({
   providers: z.array(z.string()),
@@ -473,6 +498,50 @@ function buildServer(): McpServer {
     async (input) => {
       const payload = serviceQuerySchema.parse(input);
       const data = await coreRequest('/services/query', 'POST', payload);
+      return asContent(data);
+    }
+  );
+
+  // Teams
+  server.registerTool(
+    'query-teams',
+    {
+      title: 'Query Teams',
+      description: 'Search teams by name, tags, or scope via POST /teams/query to find team ownership and organizational structure.',
+      inputSchema: teamQuerySchema,
+      outputSchema: z.array(teamSchema),
+    },
+    async (input) => {
+      const payload = teamQuerySchema.parse(input);
+      const data = await coreRequest('/teams/query', 'POST', payload);
+      return asContent(data);
+    }
+  );
+
+  server.registerTool(
+    'get-team',
+    {
+      title: 'Get Team',
+      description: 'Retrieve detailed team information with GET /teams/{id} to examine team metadata and organizational relationships.',
+      inputSchema: z.object({ id: z.string() }),
+      outputSchema: teamSchema,
+    },
+    async ({ id }) => {
+      const data = await coreRequest(`/teams/${encodeURIComponent(id)}`, 'GET');
+      return asContent(data);
+    }
+  );
+
+  server.registerTool(
+    'get-team-members',
+    {
+      title: 'Get Team Members',
+      description: 'Retrieve team membership information with GET /teams/{id}/members to find team contacts and roles.',
+      inputSchema: z.object({ id: z.string() }),
+      outputSchema: z.array(teamMemberSchema),
+    },
+    async ({ id }) => {
+      const data = await coreRequest(`/teams/${encodeURIComponent(id)}/members`, 'GET');
       return asContent(data);
     }
   );

@@ -115,6 +115,24 @@ curl -s http://localhost:7070/mcp \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get-deployment","arguments":{"id":"deploy-123"}}}'
+
+# query teams
+curl -s http://localhost:7070/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"query-teams","arguments":{"name":"velocity","limit":5}}}'
+
+# get team
+curl -s http://localhost:7070/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"get-team","arguments":{"id":"team-velocity"}}}'
+
+# get team members
+curl -s http://localhost:7070/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"get-team-members","arguments":{"id":"team-velocity"}}}'
 ```
 
 ## Tools (OpsOrch Core)
@@ -133,7 +151,10 @@ This server currently exposes **read-only** tools for querying and retrieving da
 - `query-deployments` – POST /deployments/query
 - `get-deployment` – GET /deployments/{id}
 - `query-services` – POST /services/query
-- `list-providers` – GET /providers/{capability}
+- `query-teams` – POST /teams/query
+- `get-team` – GET /teams/{id}
+- `get-team-members` – GET /teams/{id}/members
+- `list-providers` – GET /providers/{capability} where `capability` is one of `incident`, `alert`, `log`, `metric`, `ticket`, `service`, `deployment`, or `team`
 
 ### Logging
 
@@ -153,6 +174,7 @@ Documented below so agents can quickly see whether a field should be a string, i
 - **Metric queries (`query-metrics`)**: `expression` is the provider-native query string; `step` is a duration string accepted by the provider (e.g., `30s`, `5m`). Timestamps follow ISO-8601.
 - **Describe metrics (`describe-metrics`)**: `scope` is the standard query scope.
 - **Service queries (`query-services`)**: `ids` is an optional string array; `tags` is a map of string key/value filters.
+- **Team queries (`query-teams`)**: `name` is an optional string for name-based filtering; `tags` is a map of string key/value filters for team attributes.
 - **Ticket queries (`query-tickets`)**: `query` is a free-text string; `statuses`/`assignees` are string arrays.
 - **Deployment queries (`query-deployments`)**: `query` is a free-text string; `statuses`/`environments` are string arrays; supports standard scope filtering for targeted deployment searches.
 
