@@ -86,10 +86,14 @@ const logEntrySchema = z.object({
   message: z.string(),
   severity: z.string().optional(),
   service: z.string().optional(),
-  url: z.string().optional(),
   labels: z.record(z.string()).optional(),
   fields: z.record(z.any()).optional(),
   metadata: z.record(z.any()).optional(),
+});
+
+const logEntriesSchema = z.object({
+  entries: z.array(logEntrySchema),
+  url: z.string().optional(),
 });
 
 const metricFilterSchema = z.object({
@@ -425,7 +429,7 @@ function buildServer(): McpServer {
       title: 'Query Logs',
       description: 'Pull scoped telemetry through POST /logs/query to gather evidence or validate hypotheses before mutating state.',
       inputSchema: logQuerySchema,
-      outputSchema: z.array(logEntrySchema),
+      outputSchema: logEntriesSchema,
     },
     async (input) => {
       const payload = logQuerySchema.parse(input);
