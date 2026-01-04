@@ -42,6 +42,7 @@ const incidentSchema = z.object({
   status: z.string(),
   severity: z.string(),
   service: z.string().optional(),
+  url: z.string().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   fields: z.record(z.any()).optional(),
@@ -85,6 +86,7 @@ const logEntrySchema = z.object({
   message: z.string(),
   severity: z.string().optional(),
   service: z.string().optional(),
+  url: z.string().optional(),
   labels: z.record(z.string()).optional(),
   fields: z.record(z.any()).optional(),
   metadata: z.record(z.any()).optional(),
@@ -122,6 +124,7 @@ const metricSeriesSchema = z.object({
   service: z.string().optional(),
   labels: z.record(z.any()).optional(),
   points: z.array(metricPointSchema),
+  url: z.string().optional(),
   metadata: z.record(z.any()).optional(),
 });
 
@@ -131,6 +134,7 @@ const metricDescriptorSchema = z.object({
   description: z.string(),
   labels: z.array(z.string()).optional(),
   unit: z.string().optional(),
+  url: z.string().optional(),
   metadata: z.record(z.any()).optional(),
 });
 
@@ -154,6 +158,7 @@ const alertSchema = z.object({
   status: z.string(),
   severity: z.string(),
   service: z.string().optional(),
+  url: z.string().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   fields: z.record(z.any()).optional(),
@@ -172,6 +177,7 @@ const serviceQuerySchema = z.object({
 const serviceSchema = z.object({
   id: z.string(),
   name: z.string(),
+  url: z.string().optional(),
   tags: z.record(z.string()).optional(),
   metadata: z.record(z.any()).optional(),
 });
@@ -194,6 +200,7 @@ const ticketSchema = z.object({
   status: z.string(),
   assignees: z.array(z.string()).optional(),
   reporter: z.string().optional(),
+  url: z.string().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   fields: z.record(z.any()).optional(),
@@ -235,6 +242,7 @@ const teamSchema = z.object({
   id: z.string(),
   name: z.string(),
   parent: z.string().optional(),
+  url: z.string().optional(),
   tags: z.record(z.string()).optional(),
   metadata: z.record(z.any()).optional(),
 });
