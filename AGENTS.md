@@ -34,6 +34,7 @@ Agents interact only through OpsOrch Core’s normalized APIs (exposed here as M
 - Tickets: query/get. Track follow-up work here when the outcome needs project management visibility.
 - Logs/Metrics: query with scoped filters. Pull telemetry to justify actions, validate hypotheses, or confirm that mitigations are working.
 - Services: list/query for ownership and tagging. Resolve the right on-call team, impacted environment, and metadata needed to scope every other tool call.
+- Orchestration: query/get plans. Find standard operating procedures (SOPs) or runbooks.
 - Providers: list available capability providers for routing hints. Inspect what back-end connectors are configured.
 
 ## Typical flow
