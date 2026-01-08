@@ -260,7 +260,37 @@ const teamMemberSchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
-const capabilitySchema = z.enum(['incident', 'alert', 'log', 'metric', 'ticket', 'service', 'deployment', 'team']);
+const orchestrationPlanQuerySchema = z.object({
+  query: z.string().optional(),
+  scope: queryScopeSchema.optional(),
+  tags: z.record(z.string()).optional(),
+  limit: z.number().int().positive().optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+const orchestrationStepSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  type: z.string().optional(),
+  description: z.string().optional(),
+  dependsOn: z.array(z.string()).optional(),
+  fields: z.record(z.any()).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+const orchestrationPlanSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().optional(),
+  steps: z.array(orchestrationStepSchema),
+  url: z.string().optional(),
+  version: z.string().optional(),
+  tags: z.record(z.string()).optional(),
+  fields: z.record(z.any()).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+const capabilitySchema = z.enum(['incident', 'alert', 'log', 'metric', 'ticket', 'service', 'deployment', 'team', 'orchestration']);
 
 const providersResponseSchema = z.object({
   providers: z.array(z.string()),
@@ -584,6 +614,36 @@ function buildServer(): McpServer {
     },
     async ({ id }) => {
       const data = await coreRequest(`/deployments/${encodeURIComponent(id)}`, 'GET');
+      return asContent(data);
+    }
+  );
+
+  // Orchestration Plans
+  server.registerTool(
+    'query-orchestration-plans',
+    {
+      title: 'Query Orchestration Plans',
+      description: 'Search available orchestration plans (runbooks, playbooks, checklists) via POST /orchestration/plans/query to find standard operating procedures.',
+      inputSchema: orchestrationPlanQuerySchema,
+      outputSchema: z.array(orchestrationPlanSchema),
+    },
+    async (input) => {
+      const payload = orchestrationPlanQuerySchema.parse(input);
+      const data = await coreRequest('/orchestration/plans/query', 'POST', payload);
+      return asContent(data);
+    }
+  );
+
+  server.registerTool(
+    'get-orchestration-plan',
+    {
+      title: 'Get Orchestration Plan',
+      description: 'Retrieve definitions of a specific plan with GET /orchestration/plans/{id} to understand its steps and requirements.',
+      inputSchema: z.object({ id: z.string() }),
+      outputSchema: orchestrationPlanSchema,
+    },
+    async ({ id }) => {
+      const data = await coreRequest(`/orchestration/plans/${encodeURIComponent(id)}`, 'GET');
       return asContent(data);
     }
   );

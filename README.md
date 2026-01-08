@@ -154,7 +154,9 @@ This server currently exposes **read-only** tools for querying and retrieving da
 - `query-teams` – POST /teams/query
 - `get-team` – GET /teams/{id}
 - `get-team-members` – GET /teams/{id}/members
-- `list-providers` – GET /providers/{capability} where `capability` is one of `incident`, `alert`, `log`, `metric`, `ticket`, `service`, `deployment`, or `team`
+- `query-orchestration-plans` – POST /orchestration/plans/query
+- `get-orchestration-plan` – GET /orchestration/plans/{id}
+- `list-providers` – GET /providers/{capability} where `capability` is one of `incident`, `alert`, `log`, `metric`, `ticket`, `service`, `deployment`, `team`, or `orchestration`
 
 ### Logging
 
