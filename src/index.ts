@@ -3,6 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 import express from 'express';
+import { randomUUID } from 'node:crypto';
 import { logger } from './logger';
 
 const pkgVersion = '1.0.0';
@@ -238,7 +239,6 @@ const teamQuerySchema = z.object({
   name: z.string().optional(),
   tags: z.record(z.string()).optional(),
   scope: queryScopeSchema.optional(),
-  limit: z.number().int().positive().optional(),
   metadata: z.record(z.any()).optional(),
 });
 
@@ -253,10 +253,10 @@ const teamSchema = z.object({
 
 const teamMemberSchema = z.object({
   id: z.string(),
-  name: z.string(),
-  email: z.string(),
-  handle: z.string(),
-  role: z.string(),
+  name: z.string().optional(),
+  email: z.string().optional(),
+  handle: z.string().optional(),
+  role: z.string().optional(),
   metadata: z.record(z.any()).optional(),
 });
 
@@ -298,7 +298,9 @@ const providersResponseSchema = z.object({
 
 export function buildURL(pathname: string): string {
   const base = new URL(getCoreURL());
-  base.pathname = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  const basePath = base.pathname.replace(/\/+$/, '');
+  const requestPath = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  base.pathname = `${basePath}${requestPath}` || requestPath;
   return base.toString();
 }
 
@@ -666,6 +668,160 @@ function buildServer(): McpServer {
   return server;
 }
 
+type HttpSession = {
+  server: McpServer;
+  transport: StreamableHTTPServerTransport;
+};
+
+function isInitializeRequest(body: unknown): boolean {
+  return !!body && typeof body === 'object' && !Array.isArray(body) && (body as { method?: unknown }).method === 'initialize';
+}
+
+export function hasHeaderAllowLists(allowOrigins?: string[], allowHosts?: string[]): boolean {
+  return (allowOrigins?.length ?? 0) > 0 || (allowHosts?.length ?? 0) > 0;
+}
+
+export function classifyHttpRequest(
+  method: string,
+  sessionId: string | undefined,
+  body: unknown
+): 'session' | 'initialize' | 'ephemeral' | 'session-required' {
+  if (sessionId) {
+    return 'session';
+  }
+  if (method === 'GET' || method === 'DELETE') {
+    return 'session-required';
+  }
+  if (method === 'POST' && isInitializeRequest(body)) {
+    return 'initialize';
+  }
+  return 'ephemeral';
+}
+
+export function createHttpApp() {
+  const httpPort = process.env.MCP_HTTP_PORT ? Number(process.env.MCP_HTTP_PORT) : 7070;
+  const allowOrigins = process.env.MCP_HTTP_ALLOW_ORIGINS?.split(',').map((s) => s.trim()).filter(Boolean);
+  const allowHosts = process.env.MCP_HTTP_ALLOW_HOSTS?.split(',').map((s) => s.trim()).filter(Boolean);
+  const enableDnsRebindingProtection = hasHeaderAllowLists(allowOrigins, allowHosts);
+  const sessions = new Map<string, HttpSession>();
+  const app = express();
+  app.use(express.json());
+
+  app.all('/mcp', async (req, res) => {
+    let session: HttpSession | undefined;
+    let cleanupScheduled = false;
+    let initializeSessionEstablished = false;
+
+    try {
+      const sessionId = req.get('mcp-session-id');
+
+      const requestMode = classifyHttpRequest(req.method, sessionId ?? undefined, req.body);
+
+      if (requestMode === 'session') {
+        const existingSessionId = sessionId!;
+        session = sessions.get(existingSessionId);
+        if (!session) {
+          res.status(404).json({
+            jsonrpc: '2.0',
+            error: {
+              code: -32000,
+              message: 'Session not found',
+            },
+            id: null,
+          });
+          return;
+        }
+      } else if (requestMode === 'session-required') {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          error: {
+            code: -32000,
+            message: 'Session ID required',
+          },
+          id: null,
+        });
+        return;
+      } else if (requestMode === 'initialize') {
+        let server!: McpServer;
+        const transport = new StreamableHTTPServerTransport({
+          enableJsonResponse: true,
+          sessionIdGenerator: () => randomUUID(),
+          allowedOrigins: allowOrigins ?? [],
+          allowedHosts: allowHosts ?? [],
+          enableDnsRebindingProtection,
+          onsessioninitialized: (initializedSessionId) => {
+            initializeSessionEstablished = true;
+            sessions.set(initializedSessionId, { server, transport });
+          },
+          onsessionclosed: (closedSessionId) => {
+            const closedSession = sessions.get(closedSessionId);
+            if (closedSession?.transport === transport) {
+              sessions.delete(closedSessionId);
+            }
+            void server.close().catch((error) => {
+              logger.error('Failed to close MCP HTTP session server', { error, sessionId: closedSessionId });
+            });
+          },
+        });
+        server = buildServer();
+        await server.connect(transport);
+        session = { server, transport };
+        res.on('close', () => {
+          if (cleanupScheduled || initializeSessionEstablished) {
+            return;
+          }
+          cleanupScheduled = true;
+          void transport.close().catch((error) => {
+            logger.error('Failed to close failed-initialize MCP HTTP transport', { error });
+          });
+          void server.close().catch((error) => {
+            logger.error('Failed to close failed-initialize MCP HTTP server', { error });
+          });
+        });
+      } else {
+        const server = buildServer();
+        const transport = new StreamableHTTPServerTransport({
+          enableJsonResponse: true,
+          sessionIdGenerator: undefined,
+          allowedOrigins: allowOrigins ?? [],
+          allowedHosts: allowHosts ?? [],
+          enableDnsRebindingProtection,
+        });
+        await server.connect(transport);
+        session = { server, transport };
+        res.on('close', () => {
+          if (cleanupScheduled) {
+            return;
+          }
+          cleanupScheduled = true;
+          void transport.close().catch((error) => {
+            logger.error('Failed to close ephemeral MCP HTTP transport', { error });
+          });
+          void server.close().catch((error) => {
+            logger.error('Failed to close ephemeral MCP HTTP server', { error });
+          });
+        });
+      }
+
+      await session.transport.handleRequest(req, res, req.body);
+    } catch (error) {
+      logger.error('MCP HTTP request failed', { error, method: req.method, path: req.path });
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: {
+            code: -32603,
+            message: error instanceof Error ? error.message : 'Internal server error',
+          },
+          id: null,
+        });
+      }
+    }
+  });
+
+  return { app, httpPort, allowOrigins, allowHosts };
+}
+
 async function main() {
   // stdio transport (default for CLI-spawned MCP clients)
   const stdioTransport = new StdioServerTransport();
@@ -674,31 +830,8 @@ async function main() {
   logger.info('OpsOrch MCP stdio transport ready');
 
   // Optional HTTP transport for clients that prefer HTTP MCP.
-  const httpPort = process.env.MCP_HTTP_PORT ? Number(process.env.MCP_HTTP_PORT) : 7070;
+  const { app, httpPort, allowOrigins, allowHosts } = createHttpApp();
   if (!Number.isNaN(httpPort) && httpPort > 0) {
-    const allowOrigins = process.env.MCP_HTTP_ALLOW_ORIGINS?.split(',').map((s) => s.trim()).filter(Boolean);
-    const allowHosts = process.env.MCP_HTTP_ALLOW_HOSTS?.split(',').map((s) => s.trim()).filter(Boolean);
-    const app = express();
-    app.use(express.json());
-
-    app.post('/mcp', async (req, res) => {
-      // Per-request server instance to avoid initialization conflicts when clients send isolated requests.
-      const httpServer = buildServer();
-      const transport = new StreamableHTTPServerTransport({
-        enableJsonResponse: true,
-        sessionIdGenerator: undefined,
-        allowedOrigins: allowOrigins ?? [],
-        allowedHosts: allowHosts ?? [],
-      });
-
-      res.on('close', () => {
-        transport.close();
-      });
-
-      await httpServer.connect(transport);
-      await transport.handleRequest(req, res, req.body);
-    });
-
     app.listen(httpPort, () => {
       logger.info('OpsOrch MCP HTTP listening', {
         url: `http://localhost:${httpPort}/mcp`,
